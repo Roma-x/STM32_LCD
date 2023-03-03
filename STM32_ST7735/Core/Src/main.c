@@ -130,8 +130,10 @@ void loop() {
     HAL_Delay(500);
 
 }
-/* USER CODE END 0 */
+const uint16_t data[] = {
 
+};
+/* USER CODE END 0 */
 /**
   * @brief  The application entry point.
   * @retval int
@@ -487,10 +489,28 @@ void StartDefaultTask(void const * argument)
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
   char str[20];
+  FILE *fp;
 
   init();
   ST7735_FillScreen(ST7735_WHITE);
-  RTC_Set(2023, 3, 5, 11, 0, 0, 0);
+  RTC_Set(2023, 3, 5, 15, 5, 0, 3);
+  fp=fopen("~/Downloads/file.jpg","rb");
+  if (fp) {
+	  fseek(fp,0,SEEK_END);
+	  long int size=ftell(fp); // now you got size of file in bytes
+	  fseek(fp,0,SEEK_SET);    // same as rewind(fp)
+	  int16_t *data_img = (uint16_t*)malloc(size / 2 * sizeof(uint16_t));
+	  int16_t a;
+	  for(uint16_t i=0; i < size; i++)
+	  {
+		 fread(&a,sizeof(int16_t),1,fp); // you read one int (sizeof(int)!=1 byte)
+		 data_img[i] = a;
+		 printf("%d\t",a);
+	   }
+	   fclose(fp);
+  } else {
+	  printf("\rFile not opened\n");
+  }
   for(;;)
   {
 	  RTC_TimeTypeDef time;
@@ -509,7 +529,7 @@ void StartDefaultTask(void const * argument)
 	      return;
 	  }
 	  sprintf(str, "%02d:%02d:%02d", time.Hours, time.Minutes, time.Seconds);
-	  ST7735_WriteString(0, 0, str, Font_11x18, ST7735_BLACK, ST7735_WHITE);
+	  ST7735_WriteString(ST7735_WIDTH / 7, ST7735_HEIGHT / 2 - 5, str, Font_11x18, ST7735_BLACK, ST7735_WHITE);
 
   }
   /* USER CODE END 5 */

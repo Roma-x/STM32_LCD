@@ -18,11 +18,12 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "st7735.h"
-#include "fonts.h"
+#include "cmsis_os.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include "st7735.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,10 +41,13 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+RTC_HandleTypeDef hrtc;
+
 SPI_HandleTypeDef hspi1;
 
 UART_HandleTypeDef huart1;
 
+osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -53,6 +57,9 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_RTC_Init(void);
+void StartDefaultTask(void const * argument);
+
 /* USER CODE BEGIN PFP */
 #define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
 /* USER CODE END PFP */
@@ -123,14 +130,6 @@ void loop() {
     HAL_Delay(500);
 
 }
-void loop2()
-{
-	ST7735_FillScreen(ST7735_WHITE);
-	ST7735_WriteString(0, 0, "Fuck you", Font_11x18, ST7735_BLACK, ST7735_WHITE);
-	ST7735_WriteString(0, 3*10, "Fucking fuck", Font_11x18, ST7735_BLACK, ST7735_WHITE);
-	ST7735_WriteString(0, 7*10, "FUCK!!!!!!", Font_11x18, ST7735_BLACK, ST7735_WHITE);
-	HAL_Delay(20000);
-}
 /* USER CODE END 0 */
 
 /**
@@ -163,18 +162,49 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI1_Init();
   MX_USART1_UART_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
 
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* definition and creation of defaultTask */
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
-  init();
   /* USER CODE BEGIN WHILE */
+  /* Create Start thread */
+
+  /* Start scheduler */
   while (1)
   {
     /* USER CODE END WHILE */
-	  printf("Hello World\n\r");
-	  //loop2();
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -188,14 +218,18 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSE;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI_DIV2;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL16;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -205,15 +239,79 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief RTC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_RTC_Init(void)
+{
+
+  /* USER CODE BEGIN RTC_Init 0 */
+
+  /* USER CODE END RTC_Init 0 */
+
+  RTC_TimeTypeDef sTime = {0};
+  RTC_DateTypeDef DateToUpdate = {0};
+
+  /* USER CODE BEGIN RTC_Init 1 */
+
+  /* USER CODE END RTC_Init 1 */
+
+  /** Initialize RTC Only
+  */
+  hrtc.Instance = RTC;
+  hrtc.Init.AsynchPrediv = RTC_AUTO_1_SECOND;
+  hrtc.Init.OutPut = RTC_OUTPUTSOURCE_ALARM;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* USER CODE BEGIN Check_RTC_BKUP */
+
+  /* USER CODE END Check_RTC_BKUP */
+
+  /** Initialize RTC and set the Time and Date
+  */
+  sTime.Hours = 0x0;
+  sTime.Minutes = 0x0;
+  sTime.Seconds = 0x0;
+
+  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  DateToUpdate.WeekDay = RTC_WEEKDAY_MONDAY;
+  DateToUpdate.Month = RTC_MONTH_JANUARY;
+  DateToUpdate.Date = 0x1;
+  DateToUpdate.Year = 0x0;
+
+  if (HAL_RTC_SetDate(&hrtc, &DateToUpdate, RTC_FORMAT_BCD) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN RTC_Init 2 */
+
+  /* USER CODE END RTC_Init 2 */
+
 }
 
 /**
@@ -342,7 +440,101 @@ PUTCHAR_PROTOTYPE
 
   return ch;
 }
+int RTC_Set( uint8_t year, uint8_t month, uint8_t day,
+			 uint8_t hour, uint8_t min,   uint8_t sec,
+			 uint8_t dow) {
+    HAL_StatusTypeDef res;
+    RTC_TimeTypeDef time;
+    RTC_DateTypeDef date;
+
+    memset(&time, 0, sizeof(time));
+    memset(&date, 0, sizeof(date));
+
+    date.WeekDay = dow;
+    date.Year = year;
+    date.Month = month;
+    date.Date = day;
+
+    res = HAL_RTC_SetDate(&hrtc, &date, RTC_FORMAT_BIN);
+    if(res != HAL_OK) {
+        printf("HAL_RTC_SetDate failed: %d\r\n", res);
+        return -1;
+    }
+
+    time.Hours = hour;
+    time.Minutes = min;
+    time.Seconds = sec;
+
+    res = HAL_RTC_SetTime(&hrtc, &time, RTC_FORMAT_BIN);
+    if(res != HAL_OK) {
+        printf("HAL_RTC_SetTime failed: %d\r\n", res);
+        return -2;
+    }
+
+    return 0;
+}
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void const * argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  char str[20];
+
+  init();
+  ST7735_FillScreen(ST7735_WHITE);
+  RTC_Set(2023, 3, 5, 11, 0, 0, 0);
+  for(;;)
+  {
+	  RTC_TimeTypeDef time;
+	  RTC_DateTypeDef date;
+	  HAL_StatusTypeDef res;
+
+	  res = HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BIN);
+	  if(res != HAL_OK) {
+	      printf("HAL_RTC_GetTime failed: %d\r\n", res);
+	      return;
+	  }
+
+	  res = HAL_RTC_GetDate(&hrtc, &date, RTC_FORMAT_BIN);
+	  if(res != HAL_OK) {
+	      printf("HAL_RTC_GetDate failed: %d\r\n", res);
+	      return;
+	  }
+	  sprintf(str, "%02d:%02d:%02d", time.Hours, time.Minutes, time.Seconds);
+	  ST7735_WriteString(0, 0, str, Font_11x18, ST7735_BLACK, ST7735_WHITE);
+
+  }
+  /* USER CODE END 5 */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM1 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM1) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.

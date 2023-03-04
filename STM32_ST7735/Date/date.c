@@ -4,6 +4,39 @@
 
 extern RTC_HandleTypeDef hrtc;
 
+int RTC_Set( uint8_t year, uint8_t month, uint8_t day,
+			 uint8_t hour, uint8_t min,   uint8_t sec,
+			 uint8_t dow) {
+    HAL_StatusTypeDef res;
+    RTC_TimeTypeDef time;
+    RTC_DateTypeDef date;
+
+    memset(&time, 0, sizeof(time));
+    memset(&date, 0, sizeof(date));
+
+    date.WeekDay = dow;
+    date.Year = year;
+    date.Month = month;
+    date.Date = day;
+
+    res = HAL_RTC_SetDate(&hrtc, &date, RTC_FORMAT_BIN);
+    if(res != HAL_OK) {
+        printf("HAL_RTC_SetDate failed: %d\r\n", res);
+        return -1;
+    }
+
+    time.Hours = hour;
+    time.Minutes = min;
+    time.Seconds = sec;
+
+    res = HAL_RTC_SetTime(&hrtc, &time, RTC_FORMAT_BIN);
+    if(res != HAL_OK) {
+        printf("HAL_RTC_SetTime failed: %d\r\n", res);
+        return -2;
+    }
+
+    return 0;
+}
 void setDate(int year, int month, int date, int hours, int min, int sec)
 {
 	RTC_Set(year, month, date, hours, min, sec, 3);

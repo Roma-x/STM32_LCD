@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include "st7735.h"
 #include "images.h"
+#include "date.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,6 +50,7 @@ SPI_HandleTypeDef hspi1;
 UART_HandleTypeDef huart1;
 
 osThreadId defaultTaskHandle;
+osThreadId defaultTaskInterfaceHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -59,7 +61,9 @@ static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_RTC_Init(void);
+
 void StartDefaultTask(void const * argument);
+void InterfaceUser(void const * argument);
 
 /* USER CODE BEGIN PFP */
 #define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
@@ -188,11 +192,12 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 256);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  osThreadDef(userTask, InterfaceUser, osPriorityNormal, 0, 256);
+  defaultTaskInterfaceHandle = osThreadCreate(osThread(userTask), NULL);
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
@@ -443,39 +448,6 @@ PUTCHAR_PROTOTYPE
 
   return ch;
 }
-int RTC_Set( uint8_t year, uint8_t month, uint8_t day,
-			 uint8_t hour, uint8_t min,   uint8_t sec,
-			 uint8_t dow) {
-    HAL_StatusTypeDef res;
-    RTC_TimeTypeDef time;
-    RTC_DateTypeDef date;
-
-    memset(&time, 0, sizeof(time));
-    memset(&date, 0, sizeof(date));
-
-    date.WeekDay = dow;
-    date.Year = year;
-    date.Month = month;
-    date.Date = day;
-
-    res = HAL_RTC_SetDate(&hrtc, &date, RTC_FORMAT_BIN);
-    if(res != HAL_OK) {
-        printf("HAL_RTC_SetDate failed: %d\r\n", res);
-        return -1;
-    }
-
-    time.Hours = hour;
-    time.Minutes = min;
-    time.Seconds = sec;
-
-    res = HAL_RTC_SetTime(&hrtc, &time, RTC_FORMAT_BIN);
-    if(res != HAL_OK) {
-        printf("HAL_RTC_SetTime failed: %d\r\n", res);
-        return -2;
-    }
-
-    return 0;
-}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -504,7 +476,14 @@ void StartDefaultTask(void const * argument)
   }
   /* USER CODE END 5 */
 }
-
+void InterfaceUser(void const * argument)
+{
+	for(;;)
+	{
+		osDelay(1000);
+		printf("\rHi\n");
+	}
+}
 /**
   * @brief  Period elapsed callback in non blocking mode
   * @note   This function is called  when TIM1 interrupt took place, inside

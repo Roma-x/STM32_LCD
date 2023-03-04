@@ -490,7 +490,6 @@ void StartDefaultTask(void const * argument)
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
   char str[20];
-  FILE *fp;
 
   init();
   ST7735_FillScreen(ST7735_WHITE);
@@ -501,6 +500,7 @@ void StartDefaultTask(void const * argument)
 	  RTC_TimeTypeDef time;
 	  RTC_DateTypeDef date;
 	  HAL_StatusTypeDef res;
+	  const char *weekday;
 
 	  res = HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BIN);
 	  if(res != HAL_OK) {
@@ -512,10 +512,35 @@ void StartDefaultTask(void const * argument)
 	  if(res != HAL_OK) {
 	      printf("HAL_RTC_GetDate failed: %d\r\n", res);
 	      return;
+	  } else {
+		  switch (date.WeekDay){
+		  	  case 1:
+		  		  weekday = "Mon";
+		  		  break;
+		  	  case 2:
+		  		  weekday = "Tue";
+		  		  break;
+		  	  case 3:
+		  		  weekday = "Wed";
+		  		  break;
+		  	  case 4:
+		  		  weekday = "Thu";
+		  		  break;
+		  	  case 5:
+		  		  weekday = "Fri";
+		  		  break;
+		  	  case 6:
+		  		  weekday = "Sat";
+		  		  break;
+		  	  case 7:
+		  		  weekday = "Sun";
+		  		  break;
+		  }
 	  }
+	  sprintf(str, "%02d %s", date.Month, weekday);
+	  ST7735_WriteString(3 * ST7735_WIDTH / 4 - 30, ST7735_HEIGHT / 7, str, Font_7x10, ST7735_BLACK, ST7735_WHITE);
 	  sprintf(str, "%02d:%02d:%02d", time.Hours, time.Minutes, time.Seconds);
-	  ST7735_WriteString(ST7735_WIDTH / 7, ST7735_HEIGHT / 2 - 5, str, Font_11x18, ST7735_WHITE, ST7735_BLUE);
-
+	  ST7735_WriteString(3 * ST7735_WIDTH / 4 - 30, ST7735_HEIGHT / 7 + 20, str, Font_7x10, ST7735_BLACK, ST7735_WHITE);
   }
   /* USER CODE END 5 */
 }
